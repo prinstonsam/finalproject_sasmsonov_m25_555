@@ -1,0 +1,33 @@
+[tool.poetry]
+name = "finalproject-sasmsonov-m25-555"
+version = "0.1.0"
+description = "Финальный проект для семестра 01"
+authors = ["Igor Samsonov <prinstonsam@gmail.com>"]
+readme = "README.md"
+packages = [
+    { include = "valutatrade_hub" },
+]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+prettytable = "^3.17.0"
+
+[tool.poetry.scripts]
+project = "main:main"
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.14.4"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+exclude = ["venv", ".venv", "dist", "__pycache__"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = ["E501"]  # Игнорируем длинные строки в пользовательских сообщениях
+
