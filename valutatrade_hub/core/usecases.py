@@ -5,19 +5,33 @@ import secrets
 from datetime import datetime
 from typing import Iterator
 
-from valutatrade_hub.core.decorators import (
+from valutatrade_hub.decorators import (
+    log_action,
     validate_amount,
     validate_currency_code,
 )
+from valutatrade_hub.core.exceptions import (
+    ApiRequestError,
+    AuthenticationError,
+    CurrencyNotFoundError,
+    ExchangeRateNotFoundError,
+    InsufficientFundsError,
+    UserNotFoundError,
+    ValidationError,
+    WalletNotFoundError,
+)
 from valutatrade_hub.core.models import Portfolio, User
 from valutatrade_hub.core.utils import (
+    convert_currency_amount,
     get_next_user_id,
     load_portfolios,
     load_rates,
     load_users,
     save_portfolios,
+    save_rates,
     save_users,
 )
+from valutatrade_hub.infra.settings import settings
 
 _current_user: User | None = None
 
@@ -33,6 +47,7 @@ def set_current_user(user: User | None) -> None:
     _current_user = user
 
 
+@log_action("register_user")
 def register_user(username: str, password: str) -> tuple[User, Portfolio]:
     """
     Зарегистрировать нового пользователя.
@@ -45,14 +60,14 @@ def register_user(username: str, password: str) -> tuple[User, Portfolio]:
         Кортеж (пользователь, портфель)
 
     Raises:
-        ValueError: Если имя пользователя уже занято или пароль слишком короткий
+        ValidationError: Если данные некорректны
     """
     if len(password) < 4:
-        raise ValueError("Пароль должен быть не короче 4 символов")
+        raise ValidationError("Пароль должен быть не короче 4 символов")
 
     users = load_users()
     if any(user["username"] == username for user in users):
-        raise ValueError(f"Имя пользователя '{username}' уже занято")
+        raise ValidationError(f"Имя пользователя '{username}' уже занято")
 
     # Создаём пользователя
     user_id = get_next_user_id()
@@ -81,6 +96,7 @@ def register_user(username: str, password: str) -> tuple[User, Portfolio]:
     return user, portfolio
 
 
+@log_action("login_user")
 def login_user(username: str, password: str) -> User:
     """
     Войти в систему.
@@ -93,18 +109,19 @@ def login_user(username: str, password: str) -> User:
         Объект пользователя
 
     Raises:
-        ValueError: Если пользователь не найден или пароль неверный
+        UserNotFoundError: Если пользователь не найден
+        AuthenticationError: Если пароль неверный
     """
     users = load_users()
     user_data = next((u for u in users if u["username"] == username), None)
 
     if user_data is None:
-        raise ValueError(f"Пользователь '{username}' не найден")
+        raise UserNotFoundError(f"Пользователь '{username}' не найден")
 
     user = User.from_dict(user_data)
 
     if not user.verify_password(password):
-        raise ValueError("Неверный пароль")
+        raise AuthenticationError("Неверный пароль")
 
     set_current_user(user)
     return user
@@ -166,6 +183,46 @@ def save_portfolio(portfolio: Portfolio) -> None:
     save_portfolios(portfolios)
 
 
+def _update_exchange_rate_from_api(from_currency: str, to_currency: str) -> tuple[float, str]:
+    """
+    Обновить курс валют из внешнего API (заглушка).
+
+    Args:
+        from_currency: Исходная валюта
+        to_currency: Целевая валюта
+
+    Returns:
+        Кортеж (курс, время обновления в ISO формате)
+
+    Raises:
+        ApiRequestError: Если ошибка при обращении к внешнему API
+    """
+    from datetime import datetime
+
+    # Заглушка: в реальной реализации здесь был бы запрос к внешнему API
+    # Для демонстрации используем фиксированные курсы из Portfolio
+    if from_currency in Portfolio.EXCHANGE_RATES and to_currency in Portfolio.EXCHANGE_RATES:
+        from_rate = Portfolio.EXCHANGE_RATES[from_currency]
+        to_rate = Portfolio.EXCHANGE_RATES[to_currency]
+        rate = from_rate / to_rate
+        updated_at = datetime.now().isoformat()
+        
+        # Сохраняем обновлённый курс
+        rates = load_rates()
+        rate_key = f"{from_currency}_{to_currency}"
+        rates[rate_key] = {
+            "rate": rate,
+            "updated_at": updated_at,
+        }
+        save_rates(rates)
+        
+        return rate, updated_at
+    
+    # Если курс недоступен даже в фиксированных курсах
+    raise ApiRequestError(f"Не удалось получить курс {from_currency}→{to_currency} из внешнего API")
+
+
+@log_action("get_exchange_rate")
 def get_exchange_rate(from_currency: str, to_currency: str, use_cache: bool = True) -> tuple[float, str | None]:
     """
     Получить курс обмена валют.
@@ -179,41 +236,105 @@ def get_exchange_rate(from_currency: str, to_currency: str, use_cache: bool = Tr
         Кортеж (курс, время обновления или None)
 
     Raises:
-        ValueError: Если курс недоступен
+        CurrencyNotFoundError: Если валюта не найдена
+        ExchangeRateNotFoundError: Если курс недоступен
+        ApiRequestError: Если ошибка при обращении к внешнему API
+        InvalidCurrencyCodeError: Если код валюты некорректен
     """
-    from_currency = from_currency.upper()
-    to_currency = to_currency.upper()
+    from datetime import datetime, timedelta
+
+    from valutatrade_hub.core.currencies import get_currency
+
+    # Валидация валют через get_currency()
+    try:
+        get_currency(from_currency)
+    except CurrencyNotFoundError:
+        raise CurrencyNotFoundError(from_currency)
+    
+    try:
+        get_currency(to_currency)
+    except CurrencyNotFoundError:
+        raise CurrencyNotFoundError(to_currency)
 
     if from_currency == to_currency:
         return 1.0, None
 
+    # Безопасная операция: чтение → проверка → обновление (если нужно) → запись
     rates = load_rates()
+    rates_ttl = settings.get("rates_ttl_seconds", 3600)
 
     # Пробуем найти прямой курс
     rate_key = f"{from_currency}_{to_currency}"
+    rate_data = None
+    updated_at = None
+    
     if rate_key in rates and isinstance(rates[rate_key], dict):
         rate_data = rates[rate_key]
         updated_at = rate_data.get("updated_at")
-        return rate_data["rate"], updated_at
+        
+        # Проверяем свежесть курса, если use_cache=True
+        if use_cache and updated_at:
+            try:
+                updated_time = datetime.fromisoformat(updated_at)
+                ttl = timedelta(seconds=rates_ttl)
+                if datetime.now() - updated_time < ttl:
+                    # Курс свежий, возвращаем его
+                    return rate_data["rate"], updated_at
+                else:
+                    # Курс устарел, пытаемся обновить
+                    try:
+                        rate, updated_at = _update_exchange_rate_from_api(from_currency, to_currency)
+                        return rate, updated_at
+                    except ApiRequestError:
+                        # Не удалось обновить, но возвращаем старый курс
+                        return rate_data["rate"], updated_at
+            except (ValueError, TypeError):
+                # Если не удалось распарсить время, используем курс как есть
+                pass
+        
+        if rate_data:
+            return rate_data["rate"], updated_at
 
     # Пробуем обратный курс
     reverse_key = f"{to_currency}_{from_currency}"
     if reverse_key in rates and isinstance(rates[reverse_key], dict):
         rate_data = rates[reverse_key]
         updated_at = rate_data.get("updated_at")
+        
+        # Проверяем свежесть курса
+        if use_cache and updated_at:
+            try:
+                updated_time = datetime.fromisoformat(updated_at)
+                ttl = timedelta(seconds=rates_ttl)
+                if datetime.now() - updated_time < ttl:
+                    return 1.0 / rate_data["rate"], updated_at
+                else:
+                    # Курс устарел, пытаемся обновить
+                    try:
+                        rate, updated_at = _update_exchange_rate_from_api(to_currency, from_currency)
+                        return 1.0 / rate, updated_at
+                    except ApiRequestError:
+                        return 1.0 / rate_data["rate"], updated_at
+            except (ValueError, TypeError):
+                pass
+        
         return 1.0 / rate_data["rate"], updated_at
 
-    # Используем фиксированные курсы из Portfolio как fallback
-    if from_currency in Portfolio.EXCHANGE_RATES and to_currency in Portfolio.EXCHANGE_RATES:
-        from_rate = Portfolio.EXCHANGE_RATES[from_currency]
-        to_rate = Portfolio.EXCHANGE_RATES[to_currency]
-        return from_rate / to_rate, None
+    # Пытаемся получить курс из API
+    try:
+        rate, updated_at = _update_exchange_rate_from_api(from_currency, to_currency)
+        return rate, updated_at
+    except ApiRequestError:
+        # Если API недоступен, используем фиксированные курсы как fallback
+        if from_currency in Portfolio.EXCHANGE_RATES and to_currency in Portfolio.EXCHANGE_RATES:
+            from_rate = Portfolio.EXCHANGE_RATES[from_currency]
+            to_rate = Portfolio.EXCHANGE_RATES[to_currency]
+            return from_rate / to_rate, None
+        
+        raise ExchangeRateNotFoundError(f"Курс {from_currency}→{to_currency} недоступен")
 
-    raise ValueError(f"Курс {from_currency}→{to_currency} недоступен")
 
-
-@validate_currency_code
-@validate_amount
+@log_action("buy_currency", verbose=True)
 def buy_currency(user: User, currency_code: str, amount: float) -> dict:
     """
     Купить валюту.
@@ -227,9 +348,25 @@ def buy_currency(user: User, currency_code: str, amount: float) -> dict:
         Словарь с информацией о покупке
 
     Raises:
-        ValueError: Если данные некорректны или курс недоступен
+        ValidationError: Если amount <= 0
+        CurrencyNotFoundError: Если валюта не найдена
+        ExchangeRateNotFoundError: Если курс недоступен
     """
+    from valutatrade_hub.core.currencies import get_currency
 
+    # Валидация amount > 0
+    if not isinstance(amount, (int, float)) or amount <= 0:
+        raise ValidationError("Сумма покупки должна быть положительным числом")
+    amount = float(amount)
+
+    # Валидация currency_code через get_currency()
+    try:
+        currency = get_currency(currency_code)
+        currency_code = currency.code  # Нормализованный код
+    except CurrencyNotFoundError:
+        raise CurrencyNotFoundError(currency_code)
+
+    # Безопасная операция: чтение → модификация → запись
     portfolio = get_user_portfolio(user.user_id)
 
     # Получаем или создаём кошелёк
@@ -242,13 +379,16 @@ def buy_currency(user: User, currency_code: str, amount: float) -> dict:
     new_balance = wallet.balance
 
     # Получаем курс для расчёта стоимости
+    rate = None
+    cost_usd = None
     try:
         rate, _ = get_exchange_rate(currency_code, "USD")
-        cost_usd = amount * rate
-    except ValueError:
-        cost_usd = None
-        rate = None
+        cost_usd = convert_currency_amount(amount, currency_code, "USD", rate)
+    except ExchangeRateNotFoundError:
+        # Курс недоступен, но операция продолжается
+        pass
 
+    # Сохраняем портфель
     save_portfolio(portfolio)
 
     return {
@@ -256,13 +396,13 @@ def buy_currency(user: User, currency_code: str, amount: float) -> dict:
         "amount": amount,
         "old_balance": old_balance,
         "new_balance": new_balance,
-        "rate": rate if cost_usd is not None else None,
+        "rate": rate,
+        "base": "USD" if rate is not None else None,
         "cost_usd": cost_usd,
     }
 
 
-@validate_currency_code
-@validate_amount
+@log_action("sell_currency", verbose=True)
 def sell_currency(user: User, currency_code: str, amount: float) -> dict:
     """
     Продать валюту.
@@ -276,36 +416,52 @@ def sell_currency(user: User, currency_code: str, amount: float) -> dict:
         Словарь с информацией о продаже
 
     Raises:
-        ValueError: Если данные некорректны, кошелёк не найден или недостаточно средств
+        ValidationError: Если amount <= 0
+        CurrencyNotFoundError: Если валюта не найдена
+        WalletNotFoundError: Если кошелёк не найден
+        InsufficientFundsError: Если недостаточно средств
+        ExchangeRateNotFoundError: Если курс недоступен
     """
+    from valutatrade_hub.core.currencies import get_currency
 
+    # Валидация amount > 0
+    if not isinstance(amount, (int, float)) or amount <= 0:
+        raise ValidationError("Сумма продажи должна быть положительным числом")
+    amount = float(amount)
+
+    # Валидация currency_code через get_currency()
+    try:
+        currency = get_currency(currency_code)
+        currency_code = currency.code  # Нормализованный код
+    except CurrencyNotFoundError:
+        raise CurrencyNotFoundError(currency_code)
+
+    # Безопасная операция: чтение → модификация → запись
     portfolio = get_user_portfolio(user.user_id)
     wallet = portfolio.get_wallet(currency_code)
 
     if wallet is None:
-        raise ValueError(
+        raise WalletNotFoundError(
             f"У вас нет кошелька '{currency_code}'. "
             "Добавьте валюту: она создаётся автоматически при первой покупке."
         )
 
-    if amount > wallet.balance:
-        raise ValueError(
-            f"Недостаточно средств: доступно {wallet.balance:.4f} {currency_code}, "
-            f"требуется {amount:.4f} {currency_code}"
-        )
-
+    # Проверка средств (InsufficientFundsError выбрасывается в wallet.withdraw)
     old_balance = wallet.balance
-    wallet.withdraw(amount)
+    wallet.withdraw(amount)  # Может выбросить InsufficientFundsError
     new_balance = wallet.balance
 
     # Получаем курс для расчёта выручки
+    rate = None
+    revenue_usd = None
     try:
         rate, _ = get_exchange_rate(currency_code, "USD")
-        revenue_usd = amount * rate
-    except ValueError:
-        revenue_usd = None
-        rate = None
+        revenue_usd = convert_currency_amount(amount, currency_code, "USD", rate)
+    except ExchangeRateNotFoundError:
+        # Курс недоступен, но операция продолжается
+        pass
 
+    # Сохраняем портфель
     save_portfolio(portfolio)
 
     return {
@@ -313,6 +469,7 @@ def sell_currency(user: User, currency_code: str, amount: float) -> dict:
         "amount": amount,
         "old_balance": old_balance,
         "new_balance": new_balance,
-        "rate": rate if revenue_usd is not None else None,
+        "rate": rate,
+        "base": "USD" if rate is not None else None,
         "revenue_usd": revenue_usd,
     }
