@@ -7,7 +7,18 @@ from typing import Callable
 
 from prettytable import PrettyTable
 
-from valutatrade_hub.core.decorators import handle_errors, require_login
+from valutatrade_hub.decorators import handle_errors, require_login
+from valutatrade_hub.core.exceptions import (
+    ApiRequestError,
+    AuthenticationError,
+    CurrencyNotFoundError,
+    ExchangeRateNotFoundError,
+    InsufficientFundsError,
+    UserNotFoundError,
+    ValidationError,
+    WalletNotFoundError,
+    ValutaTradeError,
+)
 from valutatrade_hub.core.models import Portfolio
 from valutatrade_hub.core.usecases import (
     buy_currency,
@@ -18,6 +29,7 @@ from valutatrade_hub.core.usecases import (
     register_user,
     sell_currency,
 )
+from valutatrade_hub.infra.settings import settings
 
 
 def validate_currency(currency_code: str) -> str:
@@ -76,7 +88,9 @@ def cmd_show_portfolio(args: argparse.Namespace) -> str:
     if user is None:
         return "Сначала выполните login"
 
-    base_currency = (args.base or "USD").upper()
+    # Используем настройку из конфигурации или аргумент командной строки
+    default_base = settings.get("default_base_currency", "USD")
+    base_currency = (args.base or default_base).upper()
     portfolio = get_user_portfolio(user.user_id)
 
     if not portfolio.wallets:
@@ -124,7 +138,14 @@ def cmd_show_portfolio(args: argparse.Namespace) -> str:
 @handle_errors
 @require_login
 def cmd_buy(args: argparse.Namespace) -> str:
-    """Команда покупки валюты."""
+    """
+    Команда покупки валюты.
+    
+    Обрабатывает исключения:
+    - ValidationError: некорректные данные
+    - CurrencyNotFoundError: неизвестная валюта
+    - ExchangeRateNotFoundError: курс недоступен
+    """
     user = get_current_user()
     if user is None:
         return "Сначала выполните login"
@@ -132,10 +153,25 @@ def cmd_buy(args: argparse.Namespace) -> str:
     currency_code = validate_currency(args.currency)
     amount = validate_amount_str(args.amount)
 
-    result = buy_currency(user, currency_code, amount)
+    try:
+        result = buy_currency(user, currency_code, amount)
+    except CurrencyNotFoundError as e:
+        return f"Ошибка: {str(e)}\nИспользуйте 'get-rate --help' для списка поддерживаемых валют."
+    except ValidationError as e:
+        return f"Ошибка валидации: {str(e)}"
+    except ExchangeRateNotFoundError as e:
+        # Курс недоступен, но покупка выполнена
+        result = buy_currency(user, currency_code, amount)
+        return (
+            f"Покупка выполнена: {result['amount']:.4f} {result['currency']}\n"
+            f"Изменения в портфеле:\n"
+            f"- {result['currency']}: было {result['old_balance']:.4f} → стало {result['new_balance']:.4f}\n"
+            f"Примечание: Курс обмена недоступен, оценочная стоимость не рассчитана."
+        )
 
+    # Успешная покупка
     output_parts = [
-        f"Покупка выполнена: {result['amount']:.4f} {result['currency']}",
+        f"✓ Покупка выполнена: {result['amount']:.4f} {result['currency']}",
         f" по курсу {result['rate']:.2f} USD/{result['currency']}" if result.get("rate") else "",
         "\nИзменения в портфеле:",
         f"\n- {result['currency']}: было {result['old_balance']:.4f} → стало {result['new_balance']:.4f}",
@@ -148,7 +184,16 @@ def cmd_buy(args: argparse.Namespace) -> str:
 @handle_errors
 @require_login
 def cmd_sell(args: argparse.Namespace) -> str:
-    """Команда продажи валюты."""
+    """
+    Команда продажи валюты.
+    
+    Обрабатывает исключения:
+    - ValidationError: некорректные данные
+    - CurrencyNotFoundError: неизвестная валюта
+    - WalletNotFoundError: кошелёк не найден
+    - InsufficientFundsError: недостаточно средств
+    - ExchangeRateNotFoundError: курс недоступен
+    """
     user = get_current_user()
     if user is None:
         return "Сначала выполните login"
@@ -156,27 +201,89 @@ def cmd_sell(args: argparse.Namespace) -> str:
     currency_code = validate_currency(args.currency)
     amount = validate_amount_str(args.amount)
 
-    result = sell_currency(user, currency_code, amount)
+    try:
+        result = sell_currency(user, currency_code, amount)
+    except CurrencyNotFoundError as e:
+        return f"Ошибка: {str(e)}\nИспользуйте 'get-rate --help' для списка поддерживаемых валют."
+    except ValidationError as e:
+        return f"Ошибка валидации: {str(e)}"
+    except WalletNotFoundError as e:
+        return f"Ошибка: {str(e)}"
+    except InsufficientFundsError as e:
+        # InsufficientFundsError уже содержит подробное сообщение
+        return str(e)
+    except ExchangeRateNotFoundError as e:
+        # Курс недоступен, но продажа выполнена
+        result = sell_currency(user, currency_code, amount)
+        return (
+            f"Продажа выполнена: {result['amount']:.4f} {result['currency']}\n"
+            f"Изменения в портфеле:\n"
+            f"- {result['currency']}: было {result['old_balance']:.4f} → стало {result['new_balance']:.4f}\n"
+            f"Примечание: Курс обмена недоступен, оценочная выручка не рассчитана."
+        )
 
-    # Используем генератор для форматирования вывода
+    # Успешная продажа
     output_parts = [
-        f"Продажа выполнена: {result['amount']:.4f} {result['currency']}",
+        f"✓ Продажа выполнена: {result['amount']:.4f} {result['currency']}",
         f" по курсу {result['rate']:.2f} USD/{result['currency']}" if result.get("rate") else "",
-        "\nИзменниния в портфеле:",
+        "\nИзменения в портфеле:",
         f"\n- {result['currency']}: было {result['old_balance']:.4f} → стало {result['new_balance']:.4f}",
-        f"\n Оценочная выручка: {result['revenue_usd']:,.2f} USD" if result.get("revenue_usd") else "",
+        f"\nОценочная выручка: {result['revenue_usd']:,.2f} USD" if result.get("revenue_usd") else "",
     ]
 
     return "".join(filter(None, output_parts))
 
 
+def _get_supported_currencies() -> str:
+    """
+    Получить список поддерживаемых валют.
+
+    Returns:
+        Строка со списком валют
+    """
+    from valutatrade_hub.core.currencies import get_currency
+    
+    # Попробуем получить несколько известных валют для примера
+    known_currencies = ["USD", "EUR", "GBP", "RUB", "BTC", "ETH"]
+    supported = []
+    
+    for code in known_currencies:
+        try:
+            currency = get_currency(code)
+            supported.append(f"  {code} - {currency.name}")
+        except CurrencyNotFoundError:
+            pass
+    
+    if supported:
+        return "\nПоддерживаемые валюты (примеры):\n" + "\n".join(supported)
+    return "\nИспользуйте команду 'get-rate --help' для справки."
+
+
 @handle_errors
 def cmd_get_rate(args: argparse.Namespace) -> str:
-    """Команда получения курса валюты."""
+    """
+    Команда получения курса валюты.
+    
+    Обрабатывает исключения:
+    - CurrencyNotFoundError: предлагает help или список валют
+    - ApiRequestError: предлагает повторить позже / проверить сеть
+    """
     from_currency = validate_currency(args.from_currency)
     to_currency = validate_currency(args.to_currency)
 
-    rate, updated_at = get_exchange_rate(from_currency, to_currency)
+    try:
+        rate, updated_at = get_exchange_rate(from_currency, to_currency)
+    except CurrencyNotFoundError as e:
+        # Предлагаем help или список валют
+        error_msg = str(e)
+        help_msg = "\nИспользуйте 'get-rate --help' для справки или проверьте список поддерживаемых валют."
+        currencies_list = _get_supported_currencies()
+        return f"{error_msg}{help_msg}{currencies_list}"
+    except ApiRequestError as e:
+        # Предлагаем повторить позже / проверить сеть
+        error_msg = str(e)
+        suggestion = "\nПопробуйте повторить запрос позже или проверьте подключение к сети."
+        return f"{error_msg}{suggestion}"
 
     def format_output() -> str:
         yield f"Курс {from_currency}→{to_currency}: {rate:.8f}"
@@ -192,7 +299,7 @@ def cmd_get_rate(args: argparse.Namespace) -> str:
             try:
                 reverse_rate, _ = get_exchange_rate(to_currency, from_currency)
                 yield f"\nОбратный курс {to_currency}→{from_currency}: {reverse_rate:.2f}"
-            except ValueError:
+            except (ValueError, CurrencyNotFoundError, ApiRequestError):
                 pass
 
     return "".join(format_output())

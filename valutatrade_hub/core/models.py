@@ -4,6 +4,8 @@ import hashlib
 import secrets
 from datetime import datetime
 
+from valutatrade_hub.core.currencies import Currency
+
 
 class User:
     """Класс пользователя системы."""
@@ -156,16 +158,18 @@ class User:
 class Wallet:
     """Класс кошелька пользователя для одной конкретной валюты."""
 
-    def __init__(self, currency_code: str, balance: float = 0.0):
+    def __init__(self, currency_code: str, balance: float = 0.0, currency: Currency | None = None):
         """
         Инициализация кошелька.
 
         Args:
             currency_code: Код валюты (например, "USD", "BTC")
             balance: Баланс в данной валюте (по умолчанию 0.0)
+            currency: Объект валюты (опционально, точка интеграции)
         """
         self.currency_code = currency_code
         self.balance = balance
+        self._currency = currency  # Точка интеграции для работы с Currency
 
     @property
     def balance(self) -> float:
@@ -221,16 +225,44 @@ class Wallet:
             amount: Сумма снятия
 
         Raises:
-            ValueError: Если сумма не положительная или превышает баланс
+            ValueError: Если сумма не положительная
+            InsufficientFundsError: Если недостаточно средств
         """
+        from valutatrade_hub.core.exceptions import InsufficientFundsError
+
         if not isinstance(amount, (int, float)):
             raise TypeError("Сумма должна быть числом")
         amount = float(amount)
         if amount <= 0:
             raise ValueError("Сумма снятия должна быть положительным числом")
         if amount > self._balance:
-            raise ValueError("Недостаточно средств на балансе")
+            raise InsufficientFundsError(
+                available=self._balance,
+                required=amount,
+                code=self.currency_code
+            )
         self._balance -= amount
+
+    @property
+    def currency(self) -> Currency | None:
+        """
+        Получить объект валюты (точка интеграции).
+
+        Returns:
+            Объект Currency или None
+        """
+        return self._currency
+
+    def set_currency(self, currency: Currency) -> None:
+        """
+        Установить объект валюты (точка интеграции).
+
+        Args:
+            currency: Объект валюты
+        """
+        if currency.code.upper() != self.currency_code.upper():
+            raise ValueError(f"Код валюты {currency.code} не совпадает с кодом кошелька {self.currency_code}")
+        self._currency = currency
 
     def get_balance_info(self) -> dict:
         """
@@ -239,10 +271,14 @@ class Wallet:
         Returns:
             Словарь с информацией о балансе
         """
-        return {
+        info = {
             "currency_code": self.currency_code,
             "balance": self._balance,
         }
+        if self._currency:
+            info["currency_type"] = self._currency.get_type()
+            info["currency_name"] = self._currency.name
+        return info
 
     def to_dict(self) -> dict:
         """
@@ -257,12 +293,13 @@ class Wallet:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "Wallet":
+    def from_dict(cls, data: dict, currency: Currency | None = None) -> "Wallet":
         """
         Создать кошелёк из словаря (из JSON).
 
         Args:
             data: Словарь с данными кошелька
+            currency: Объект валюты (опционально, точка интеграции)
 
         Returns:
             Экземпляр класса Wallet
@@ -270,6 +307,7 @@ class Wallet:
         return cls(
             currency_code=data["currency_code"],
             balance=data["balance"],
+            currency=currency,
         )
 
 
