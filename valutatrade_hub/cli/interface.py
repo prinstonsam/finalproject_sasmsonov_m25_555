@@ -325,36 +325,29 @@ def cmd_update_rates(args: argparse.Namespace) -> str:
     Обрабатывает исключения:
     - ApiRequestError: ошибки при обращении к внешнему API
     """
-    from datetime import datetime
-
     from valutatrade_hub.core.exceptions import ApiRequestError
-    from valutatrade_hub.core.utils import load_rates, save_rates
+    from valutatrade_hub.parser_service.updater import RatesUpdater
 
     source = args.source.lower() if args.source else None
 
-    # Пока Parser Service не реализован, используем заглушку
-    # TODO: Интегрировать с parser_service.updater.RatesUpdater
+    if source and source not in ("coingecko", "exchangerate"):
+        return f"Неизвестный источник: {source}. Используйте 'coingecko' или 'exchangerate'"
 
     try:
-        # Заглушка: сообщаем, что Parser Service еще не реализован
-        if source and source not in ("coingecko", "exchangerate"):
-            return f"Неизвестный источник: {source}. Используйте 'coingecko' или 'exchangerate'"
+        updater = RatesUpdater()
+        result = updater.run_update(source=source)
 
-        # Временная заглушка
-        rates = load_rates()
-        if not rates:
-            rates = {}
-
-        # Обновляем метаданные
-        rates["source"] = "ParserService"
-        rates["last_refresh"] = datetime.now().isoformat()
-
-        save_rates(rates)
+        if result["errors"]:
+            error_msg = "\n".join(result["errors"])
+            return (
+                f"Update completed with errors. Check logs for details.\n"
+                f"Errors: {error_msg}\n"
+                f"Total rates updated: {result['updated']}"
+            )
 
         return (
-            "INFO: Starting rates update...\n"
-            "INFO: Parser Service еще не реализован. Используется заглушка.\n"
-            f"Update successful. Last refresh: {rates['last_refresh']}"
+            f"Update successful. Total rates updated: {result['updated']}. "
+            f"Last refresh: {result.get('last_refresh', 'N/A')}"
         )
     except ApiRequestError as e:
         return f"Ошибка при обновлении курсов: {str(e)}\nПопробуйте повторить позже."
@@ -376,22 +369,19 @@ def cmd_show_rates(args: argparse.Namespace) -> str:
 
     rates = load_rates()
 
-    # Проверяем, что кеш не пуст
-    if not rates or (
-        isinstance(rates, dict)
-        and not any(k not in ("source", "last_refresh") for k in rates.keys())
-    ):
+    if not rates or not isinstance(rates, dict):
         return "Локальный кеш курсов пуст. Выполните 'update-rates', чтобы загрузить данные."
 
-    # Извлекаем метаданные
     last_refresh = rates.get("last_refresh", "неизвестно")
 
-    # Фильтруем курсы (исключаем метаданные)
-    rate_pairs = {
-        k: v
-        for k, v in rates.items()
-        if k not in ("source", "last_refresh") and isinstance(v, dict)
-    }
+    if "pairs" in rates:
+        rate_pairs = rates["pairs"]
+    else:
+        rate_pairs = {
+            k: v
+            for k, v in rates.items()
+            if k not in ("source", "last_refresh") and isinstance(v, dict)
+        }
 
     if not rate_pairs:
         return "Локальный кеш курсов пуст. Выполните 'update-rates', чтобы загрузить данные."
@@ -421,9 +411,6 @@ def cmd_show_rates(args: argparse.Namespace) -> str:
         except ValueError:
             return f"Некорректное значение для --top: {args.top}"
 
-    # Фильтр --base (конвертация в другую базовую валюту)
-    # TODO: Реализовать конвертацию в другую базовую валюту
-
     # Форматируем вывод
     try:
         if last_refresh != "неизвестно":
@@ -442,7 +429,9 @@ def cmd_show_rates(args: argparse.Namespace) -> str:
     for pair_key, rate_data in sorted_items:
         if isinstance(rate_data, dict):
             rate = rate_data.get("rate", "N/A")
-            result_lines.append(f"- {pair_key}: {rate}")
+            source = rate_data.get("source", "")
+            source_str = f" ({source})" if source else ""
+            result_lines.append(f"- {pair_key}: {rate}{source_str}")
 
     return "\n".join(result_lines)
 

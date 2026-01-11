@@ -265,17 +265,17 @@ def get_exchange_rate(
     if from_currency == to_currency:
         return 1.0, None
 
-    # Безопасная операция: чтение → проверка → обновление (если нужно) → запись
     rates = load_rates()
     rates_ttl = settings.get("rates_ttl_seconds", 3600)
 
-    # Пробуем найти прямой курс
+    rate_pairs = rates.get("pairs", {}) if isinstance(rates, dict) else rates
+
     rate_key = f"{from_currency}_{to_currency}"
     rate_data = None
     updated_at = None
 
-    if rate_key in rates and isinstance(rates[rate_key], dict):
-        rate_data = rates[rate_key]
+    if rate_key in rate_pairs and isinstance(rate_pairs[rate_key], dict):
+        rate_data = rate_pairs[rate_key]
         updated_at = rate_data.get("updated_at")
 
         # Проверяем свежесть курса, если use_cache=True
@@ -303,10 +303,9 @@ def get_exchange_rate(
         if rate_data:
             return rate_data["rate"], updated_at
 
-    # Пробуем обратный курс
     reverse_key = f"{to_currency}_{from_currency}"
-    if reverse_key in rates and isinstance(rates[reverse_key], dict):
-        rate_data = rates[reverse_key]
+    if reverse_key in rate_pairs and isinstance(rate_pairs[reverse_key], dict):
+        rate_data = rate_pairs[reverse_key]
         updated_at = rate_data.get("updated_at")
 
         # Проверяем свежесть курса
