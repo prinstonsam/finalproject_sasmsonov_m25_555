@@ -44,3 +44,7 @@ Thumbs.db
 # Project specific
 data/*.json.bak
 *.bak
+
+# API keys
+api_key.txt
+.env.local
