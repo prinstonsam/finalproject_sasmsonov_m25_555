@@ -41,9 +41,11 @@ def setup_logging(
     log_path = log_dir / log_file
 
     # Формат логов (человекочитаемый)
-    log_format_str = settings.get("log_format", "%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    log_format_str = settings.get(
+        "log_format", "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
     log_date_format = settings.get("log_date_format", "%Y-%m-%d %H:%M:%S")
-    
+
     log_format = logging.Formatter(
         fmt=log_format_str,
         datefmt=log_date_format,
@@ -106,19 +108,19 @@ def _setup_action_logger(
         log_level: Уровень логирования
     """
     action_log_path = log_dir / "actions.log"
-    
+
     # Формат для действий: LEVEL timestamp message
     # Пример: INFO 2025-10-09T12:05:22 action=BUY user='alice' currency='BTC' amount=0.0500 rate=59300.00 base='USD' result=OK
     action_format = logging.Formatter(
         fmt="%(levelname)s %(asctime)s %(message)s",
         datefmt="%Y-%m-%dT%H:%M:%S",
     )
-    
+
     # Создаём отдельный логгер для действий
     action_logger = logging.getLogger("valutatrade_hub.actions")
     action_logger.setLevel(log_level)
     action_logger.propagate = False  # Не пропускаем в корневой логгер
-    
+
     # Обработчик для файла действий с ротацией
     action_file_handler = logging.handlers.RotatingFileHandler(
         action_log_path,
@@ -140,7 +142,7 @@ def get_action_logger() -> logging.Logger:
     """
     # Убеждаемся, что action logger настроен
     action_logger = logging.getLogger("valutatrade_hub.actions")
-    
+
     # Если обработчики еще не настроены, настраиваем их
     if not action_logger.handlers:
         log_dir = settings.logs_dir
@@ -150,6 +152,5 @@ def get_action_logger() -> logging.Logger:
         if isinstance(log_level, str):
             log_level = logging.INFO
         _setup_action_logger(log_dir, max_bytes, backup_count, log_level)
-    
-    return action_logger
 
+    return action_logger

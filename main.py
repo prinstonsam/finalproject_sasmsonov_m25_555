@@ -10,11 +10,10 @@ def main():
     """Главная функция для запуска проекта."""
     # Инициализация логирования
     setup_logging(log_level=logging.INFO)
-    
+
     # Запуск CLI
     main_cli()
 
 
 if __name__ == "__main__":
     main()
-

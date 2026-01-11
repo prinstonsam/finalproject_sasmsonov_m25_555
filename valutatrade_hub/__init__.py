@@ -1,2 +1,1 @@
 """Пакет valutatrade_hub."""
-

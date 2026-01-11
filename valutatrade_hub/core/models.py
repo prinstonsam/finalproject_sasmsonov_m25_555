@@ -158,7 +158,9 @@ class User:
 class Wallet:
     """Класс кошелька пользователя для одной конкретной валюты."""
 
-    def __init__(self, currency_code: str, balance: float = 0.0, currency: Currency | None = None):
+    def __init__(
+        self, currency_code: str, balance: float = 0.0, currency: Currency | None = None
+    ):
         """
         Инициализация кошелька.
 
@@ -237,9 +239,7 @@ class Wallet:
             raise ValueError("Сумма снятия должна быть положительным числом")
         if amount > self._balance:
             raise InsufficientFundsError(
-                available=self._balance,
-                required=amount,
-                code=self.currency_code
+                available=self._balance, required=amount, code=self.currency_code
             )
         self._balance -= amount
 
@@ -261,7 +261,9 @@ class Wallet:
             currency: Объект валюты
         """
         if currency.code.upper() != self.currency_code.upper():
-            raise ValueError(f"Код валюты {currency.code} не совпадает с кодом кошелька {self.currency_code}")
+            raise ValueError(
+                f"Код валюты {currency.code} не совпадает с кодом кошелька {self.currency_code}"
+            )
         self._currency = currency
 
     def get_balance_info(self) -> dict:
@@ -323,7 +325,12 @@ class Portfolio:
         "GBP": 1.27,
     }
 
-    def __init__(self, user_id: int, wallets: dict[str, Wallet] | None = None, user: "User" | None = None):
+    def __init__(
+        self,
+        user_id: int,
+        wallets: dict[str, Wallet] | None = None,
+        user: "User" | None = None,
+    ):
         """
         Инициализация портфеля.
 
@@ -459,5 +466,7 @@ class Portfolio:
         for currency_code, wallet_data in data["wallets"].items():
             # В JSON currency_code в ключе, balance в значении
             balance = wallet_data.get("balance", 0.0)
-            wallets[currency_code] = Wallet(currency_code=currency_code, balance=balance)
+            wallets[currency_code] = Wallet(
+                currency_code=currency_code, balance=balance
+            )
         return cls(user_id=data["user_id"], wallets=wallets)

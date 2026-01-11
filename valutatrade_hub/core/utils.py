@@ -102,15 +102,19 @@ def validate_currency_code(currency_code: str) -> str:
     """
     if not currency_code or not isinstance(currency_code, str):
         raise InvalidCurrencyCodeError("Код валюты не может быть пустым")
-    
+
     currency_code = currency_code.strip().upper()
-    
+
     if len(currency_code) < 2 or len(currency_code) > 10:
-        raise InvalidCurrencyCodeError(f"Код валюты должен быть от 2 до 10 символов: {currency_code}")
-    
+        raise InvalidCurrencyCodeError(
+            f"Код валюты должен быть от 2 до 10 символов: {currency_code}"
+        )
+
     if not currency_code.isalnum():
-        raise InvalidCurrencyCodeError(f"Код валюты должен содержать только буквы и цифры: {currency_code}")
-    
+        raise InvalidCurrencyCodeError(
+            f"Код валюты должен содержать только буквы и цифры: {currency_code}"
+        )
+
     return currency_code
 
 
@@ -165,19 +169,19 @@ def convert_currency_amount(
     """
     if not isinstance(amount, (int, float)):
         raise ValidationError("Сумма должна быть числом")
-    
+
     if amount < 0:
         raise ValidationError("Сумма не может быть отрицательной")
-    
+
     if not isinstance(exchange_rate, (int, float)) or exchange_rate <= 0:
         raise ValidationError("Курс обмена должен быть положительным числом")
-    
+
     validate_currency_code(from_currency)
     validate_currency_code(to_currency)
-    
+
     if from_currency == to_currency:
         return amount
-    
+
     return amount * exchange_rate
 
 
