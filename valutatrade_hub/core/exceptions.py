@@ -120,4 +120,3 @@ class ApiRequestError(ExchangeRateError):
         message = f"Ошибка при обращении к внешнему API: {reason}"
         super().__init__(message)
         self.reason = reason
-

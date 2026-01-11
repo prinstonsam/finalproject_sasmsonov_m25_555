@@ -5,17 +5,11 @@ import secrets
 from datetime import datetime
 from typing import Iterator
 
-from valutatrade_hub.decorators import (
-    log_action,
-    validate_amount,
-    validate_currency_code,
-)
 from valutatrade_hub.core.exceptions import (
     ApiRequestError,
     AuthenticationError,
     CurrencyNotFoundError,
     ExchangeRateNotFoundError,
-    InsufficientFundsError,
     UserNotFoundError,
     ValidationError,
     WalletNotFoundError,
@@ -30,6 +24,9 @@ from valutatrade_hub.core.utils import (
     save_portfolios,
     save_rates,
     save_users,
+)
+from valutatrade_hub.decorators import (
+    log_action,
 )
 from valutatrade_hub.infra.settings import settings
 
@@ -183,7 +180,9 @@ def save_portfolio(portfolio: Portfolio) -> None:
     save_portfolios(portfolios)
 
 
-def _update_exchange_rate_from_api(from_currency: str, to_currency: str) -> tuple[float, str]:
+def _update_exchange_rate_from_api(
+    from_currency: str, to_currency: str
+) -> tuple[float, str]:
     """
     Обновить курс валют из внешнего API (заглушка).
 
@@ -201,12 +200,15 @@ def _update_exchange_rate_from_api(from_currency: str, to_currency: str) -> tupl
 
     # Заглушка: в реальной реализации здесь был бы запрос к внешнему API
     # Для демонстрации используем фиксированные курсы из Portfolio
-    if from_currency in Portfolio.EXCHANGE_RATES and to_currency in Portfolio.EXCHANGE_RATES:
+    if (
+        from_currency in Portfolio.EXCHANGE_RATES
+        and to_currency in Portfolio.EXCHANGE_RATES
+    ):
         from_rate = Portfolio.EXCHANGE_RATES[from_currency]
         to_rate = Portfolio.EXCHANGE_RATES[to_currency]
         rate = from_rate / to_rate
         updated_at = datetime.now().isoformat()
-        
+
         # Сохраняем обновлённый курс
         rates = load_rates()
         rate_key = f"{from_currency}_{to_currency}"
@@ -215,15 +217,19 @@ def _update_exchange_rate_from_api(from_currency: str, to_currency: str) -> tupl
             "updated_at": updated_at,
         }
         save_rates(rates)
-        
+
         return rate, updated_at
-    
+
     # Если курс недоступен даже в фиксированных курсах
-    raise ApiRequestError(f"Не удалось получить курс {from_currency}→{to_currency} из внешнего API")
+    raise ApiRequestError(
+        f"Не удалось получить курс {from_currency}→{to_currency} из внешнего API"
+    )
 
 
 @log_action("get_exchange_rate")
-def get_exchange_rate(from_currency: str, to_currency: str, use_cache: bool = True) -> tuple[float, str | None]:
+def get_exchange_rate(
+    from_currency: str, to_currency: str, use_cache: bool = True
+) -> tuple[float, str | None]:
     """
     Получить курс обмена валют.
 
@@ -250,7 +256,7 @@ def get_exchange_rate(from_currency: str, to_currency: str, use_cache: bool = Tr
         get_currency(from_currency)
     except CurrencyNotFoundError:
         raise CurrencyNotFoundError(from_currency)
-    
+
     try:
         get_currency(to_currency)
     except CurrencyNotFoundError:
@@ -267,11 +273,11 @@ def get_exchange_rate(from_currency: str, to_currency: str, use_cache: bool = Tr
     rate_key = f"{from_currency}_{to_currency}"
     rate_data = None
     updated_at = None
-    
+
     if rate_key in rates and isinstance(rates[rate_key], dict):
         rate_data = rates[rate_key]
         updated_at = rate_data.get("updated_at")
-        
+
         # Проверяем свежесть курса, если use_cache=True
         if use_cache and updated_at:
             try:
@@ -283,7 +289,9 @@ def get_exchange_rate(from_currency: str, to_currency: str, use_cache: bool = Tr
                 else:
                     # Курс устарел, пытаемся обновить
                     try:
-                        rate, updated_at = _update_exchange_rate_from_api(from_currency, to_currency)
+                        rate, updated_at = _update_exchange_rate_from_api(
+                            from_currency, to_currency
+                        )
                         return rate, updated_at
                     except ApiRequestError:
                         # Не удалось обновить, но возвращаем старый курс
@@ -291,7 +299,7 @@ def get_exchange_rate(from_currency: str, to_currency: str, use_cache: bool = Tr
             except (ValueError, TypeError):
                 # Если не удалось распарсить время, используем курс как есть
                 pass
-        
+
         if rate_data:
             return rate_data["rate"], updated_at
 
@@ -300,7 +308,7 @@ def get_exchange_rate(from_currency: str, to_currency: str, use_cache: bool = Tr
     if reverse_key in rates and isinstance(rates[reverse_key], dict):
         rate_data = rates[reverse_key]
         updated_at = rate_data.get("updated_at")
-        
+
         # Проверяем свежесть курса
         if use_cache and updated_at:
             try:
@@ -311,13 +319,15 @@ def get_exchange_rate(from_currency: str, to_currency: str, use_cache: bool = Tr
                 else:
                     # Курс устарел, пытаемся обновить
                     try:
-                        rate, updated_at = _update_exchange_rate_from_api(to_currency, from_currency)
+                        rate, updated_at = _update_exchange_rate_from_api(
+                            to_currency, from_currency
+                        )
                         return 1.0 / rate, updated_at
                     except ApiRequestError:
                         return 1.0 / rate_data["rate"], updated_at
             except (ValueError, TypeError):
                 pass
-        
+
         return 1.0 / rate_data["rate"], updated_at
 
     # Пытаемся получить курс из API
@@ -326,12 +336,17 @@ def get_exchange_rate(from_currency: str, to_currency: str, use_cache: bool = Tr
         return rate, updated_at
     except ApiRequestError:
         # Если API недоступен, используем фиксированные курсы как fallback
-        if from_currency in Portfolio.EXCHANGE_RATES and to_currency in Portfolio.EXCHANGE_RATES:
+        if (
+            from_currency in Portfolio.EXCHANGE_RATES
+            and to_currency in Portfolio.EXCHANGE_RATES
+        ):
             from_rate = Portfolio.EXCHANGE_RATES[from_currency]
             to_rate = Portfolio.EXCHANGE_RATES[to_currency]
             return from_rate / to_rate, None
-        
-        raise ExchangeRateNotFoundError(f"Курс {from_currency}→{to_currency} недоступен")
+
+        raise ExchangeRateNotFoundError(
+            f"Курс {from_currency}→{to_currency} недоступен"
+        )
 
 
 @log_action("buy_currency", verbose=True)

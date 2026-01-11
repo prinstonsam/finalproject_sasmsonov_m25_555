@@ -11,6 +11,7 @@ packages = [
 [tool.poetry.dependencies]
 python = "^3.12"
 prettytable = "^3.17.0"
+requests = "^2.31.0"
 
 [tool.poetry.scripts]
 project = "main:main"
@@ -30,6 +31,10 @@ exclude = ["venv", ".venv", "dist", "__pycache__"]
 [tool.ruff.lint]
 select = ["E", "F", "I"]
 ignore = ["E501"]  # Игнорируем длинные строки в пользовательских сообщениях
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
 
 [tool.valutatrade]
 # Пути к данным

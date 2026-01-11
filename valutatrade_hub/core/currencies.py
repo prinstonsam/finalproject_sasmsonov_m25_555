@@ -2,13 +2,16 @@
 
 from abc import ABC, abstractmethod
 
-from valutatrade_hub.core.exceptions import CurrencyNotFoundError, InvalidCurrencyCodeError
+from valutatrade_hub.core.exceptions import (
+    CurrencyNotFoundError,
+    InvalidCurrencyCodeError,
+)
 
 
 class Currency(ABC):
     """
     Абстрактный базовый класс для валют.
-    
+
     Инварианты:
     - code: верхний регистр, 2-5 символов, без пробелов
     - name: не пустая строка
@@ -29,21 +32,21 @@ class Currency(ABC):
         # Валидация кода валюты
         if not code or not isinstance(code, str):
             raise InvalidCurrencyCodeError("Код валюты не может быть пустым")
-        
+
         code = code.strip().upper()
-        
+
         if " " in code:
             raise InvalidCurrencyCodeError("Код валюты не может содержать пробелы")
-        
+
         if len(code) < 2 or len(code) > 5:
             raise InvalidCurrencyCodeError(
                 f"Код валюты должен быть от 2 до 5 символов, получено: {code}"
             )
-        
+
         # Валидация имени
         if not name or not isinstance(name, str) or not name.strip():
             raise ValueError("Имя валюты не может быть пустым")
-        
+
         # Public атрибуты
         self.code = code
         self.name = name.strip()
@@ -90,7 +93,7 @@ class Currency(ABC):
 class FiatCurrency(Currency):
     """
     Класс для фиатных валют (USD, EUR, RUB и т.д.).
-    
+
     Формат get_display_info(): "[FIAT] USD — US Dollar (Issuing: United States)"
     """
 
@@ -124,7 +127,7 @@ class FiatCurrency(Currency):
 class CryptoCurrency(Currency):
     """
     Класс для криптовалют (BTC, ETH и т.д.).
-    
+
     Формат get_display_info(): "[CRYPTO] BTC — Bitcoin (Algo: SHA-256, MCAP: 1.12e12)"
     """
 
@@ -166,7 +169,7 @@ _CURRENCY_REGISTRY: dict[str, Currency] = {}
 def _initialize_currency_registry() -> None:
     """Инициализировать реестр валют с предопределёнными валютами."""
     global _CURRENCY_REGISTRY
-    
+
     # Фиатные валюты
     fiat_currencies = [
         FiatCurrency("USD", "US Dollar", "United States"),
@@ -179,7 +182,7 @@ def _initialize_currency_registry() -> None:
         FiatCurrency("CAD", "Canadian Dollar", "Canada"),
         FiatCurrency("AUD", "Australian Dollar", "Australia"),
     ]
-    
+
     # Криптовалюты
     crypto_currencies = [
         CryptoCurrency("BTC", "Bitcoin", "SHA-256", 1.12e12),
@@ -191,7 +194,7 @@ def _initialize_currency_registry() -> None:
         CryptoCurrency("XRP", "Ripple", "Consensus Protocol", 2.8e10),
         CryptoCurrency("DOGE", "Dogecoin", "Scrypt", 1.2e10),
     ]
-    
+
     # Регистрируем все валюты
     for currency in fiat_currencies + crypto_currencies:
         _CURRENCY_REGISTRY[currency.code] = currency
@@ -214,17 +217,17 @@ def get_currency(code: str) -> Currency:
     # Инициализируем реестр при первом вызове
     if not _CURRENCY_REGISTRY:
         _initialize_currency_registry()
-    
+
     # Валидация и нормализация кода
     if not code or not isinstance(code, str):
         raise InvalidCurrencyCodeError("Код валюты не может быть пустым")
-    
+
     code = code.strip().upper()
-    
+
     # Проверяем наличие валюты в реестре
     if code not in _CURRENCY_REGISTRY:
         raise CurrencyNotFoundError(code)
-    
+
     return _CURRENCY_REGISTRY[code]
 
 

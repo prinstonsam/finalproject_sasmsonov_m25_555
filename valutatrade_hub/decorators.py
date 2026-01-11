@@ -106,7 +106,7 @@ def handle_errors(func: F) -> F:
         except Exception as e:
             # Обрабатываем пользовательские исключения
             from valutatrade_hub.core.exceptions import ValutaTradeError
-            
+
             if isinstance(e, ValutaTradeError):
                 return str(e)
             return f"Ошибка: {str(e)}"
@@ -157,10 +157,7 @@ def log_action(action_name: str | None = None, verbose: bool = False):
     Returns:
         Обёрнутая функция с логированием
 
-    Note:
-        Декоратор не глотает исключения - пробрасывает их дальше, но фиксирует в лог.
     """
-    from datetime import datetime
     from valutatrade_hub.logging_config import get_action_logger
 
     def decorator(func: F) -> F:
@@ -169,16 +166,14 @@ def log_action(action_name: str | None = None, verbose: bool = False):
 
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
-            timestamp = datetime.now().isoformat()
-            
             # Извлекаем информацию о пользователе и параметрах
             user_info = _extract_user_info(args, kwargs)
             currency_code = _extract_currency_code(args, kwargs)
             amount = _extract_amount(args, kwargs)
-            
+
             try:
                 result = func(*args, **kwargs)
-                
+
                 # Извлекаем rate и base из результата, если есть
                 rate = None
                 base = None
@@ -188,13 +183,13 @@ def log_action(action_name: str | None = None, verbose: bool = False):
                     # Если rate есть, но base нет, используем USD по умолчанию
                     if rate is not None and base is None:
                         base = "USD"
-                
+
                 # Формируем сообщение лога
                 log_parts = [
                     f"action={action}",
                     f"user={user_info}",
                 ]
-                
+
                 if currency_code:
                     log_parts.append(f"currency='{currency_code}'")
                 if amount is not None:
@@ -203,45 +198,47 @@ def log_action(action_name: str | None = None, verbose: bool = False):
                     log_parts.append(f"rate={rate:.2f}")
                 if base:
                     log_parts.append(f"base='{base}'")
-                
+
                 log_parts.append("result=OK")
-                
+
                 # Добавляем verbose информацию
                 if verbose and isinstance(result, dict):
                     if "old_balance" in result and "new_balance" in result:
                         log_parts.append(
                             f"wallet_balance={result['old_balance']:.4f}→{result['new_balance']:.4f}"
                         )
-                
+
                 log_message = " ".join(log_parts)
                 logger.info(log_message)
-                
+
                 return result
             except Exception as e:
                 # Извлекаем тип ошибки
                 error_type = type(e).__name__
                 error_message = str(e)
-                
+
                 # Формируем сообщение лога с ошибкой
                 log_parts = [
                     f"action={action}",
                     f"user={user_info}",
                 ]
-                
+
                 if currency_code:
                     log_parts.append(f"currency='{currency_code}'")
                 if amount is not None:
                     log_parts.append(f"amount={amount:.4f}")
-                
-                log_parts.extend([
-                    "result=ERROR",
-                    f"error_type={error_type}",
-                    f"error_message='{error_message}'",
-                ])
-                
+
+                log_parts.extend(
+                    [
+                        "result=ERROR",
+                        f"error_type={error_type}",
+                        f"error_message='{error_message}'",
+                    ]
+                )
+
                 log_message = " ".join(log_parts)
                 logger.error(log_message, exc_info=True)
-                
+
                 # Пробрасываем исключение дальше
                 raise
 
@@ -252,29 +249,29 @@ def log_action(action_name: str | None = None, verbose: bool = False):
 
 def _extract_user_info(args: tuple, kwargs: dict) -> str:
     """Извлечь информацию о пользователе из аргументов."""
-    from valutatrade_hub.core.usecases import get_current_user
     from valutatrade_hub.core.models import User
-    
+    from valutatrade_hub.core.usecases import get_current_user
+
     # Пробуем найти user в аргументах
     for arg in args:
         if isinstance(arg, User):
             return f"'{arg.username}'"
-    
+
     # Пробуем найти user в kwargs
     if "user" in kwargs:
         user = kwargs["user"]
         if isinstance(user, User):
             return f"'{user.username}'"
-    
+
     # Пробуем найти username в kwargs
     if "username" in kwargs:
         return f"'{kwargs['username']}'"
-    
+
     # Пробуем получить текущего пользователя
     current_user = get_current_user()
     if current_user:
         return f"'{current_user.username}'"
-    
+
     return "unknown"
 
 
@@ -285,14 +282,14 @@ def _extract_currency_code(args: tuple, kwargs: dict) -> str | None:
         return kwargs["currency_code"]
     if "currency" in kwargs:
         return kwargs["currency"]
-    
+
     # Пробуем найти в args (обычно второй аргумент после user)
     for arg in args:
         if isinstance(arg, str) and len(arg) in (2, 3, 4, 5):
             # Простая эвристика: короткие строки могут быть кодами валют
             if arg.isupper() or arg.isalnum():
                 return arg
-    
+
     return None
 
 
@@ -307,11 +304,10 @@ def _extract_amount(args: tuple, kwargs: dict) -> float | None:
                 return float(amount)
             except ValueError:
                 pass
-    
+
     # Пробуем найти в args
     for arg in args:
         if isinstance(arg, (int, float)):
             return float(arg)
-    
-    return None
 
+    return None

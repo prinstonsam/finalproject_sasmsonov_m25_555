@@ -7,17 +7,13 @@ from typing import Callable
 
 from prettytable import PrettyTable
 
-from valutatrade_hub.decorators import handle_errors, require_login
 from valutatrade_hub.core.exceptions import (
     ApiRequestError,
-    AuthenticationError,
     CurrencyNotFoundError,
     ExchangeRateNotFoundError,
     InsufficientFundsError,
-    UserNotFoundError,
     ValidationError,
     WalletNotFoundError,
-    ValutaTradeError,
 )
 from valutatrade_hub.core.models import Portfolio
 from valutatrade_hub.core.usecases import (
@@ -29,6 +25,7 @@ from valutatrade_hub.core.usecases import (
     register_user,
     sell_currency,
 )
+from valutatrade_hub.decorators import handle_errors, require_login
 from valutatrade_hub.infra.settings import settings
 
 
@@ -100,7 +97,9 @@ def cmd_show_portfolio(args: argparse.Namespace) -> str:
     table = PrettyTable()
     table.field_names = ["Валюта", "Баланс", f"→ {base_currency}"]
 
-    def calculate_wallet_value(wallet_data: tuple[str, Portfolio]) -> tuple[str, float, float]:
+    def calculate_wallet_value(
+        wallet_data: tuple[str, Portfolio],
+    ) -> tuple[str, float, float]:
         """Генератор для расчёта стоимости кошелька."""
         currency_code, wallet = wallet_data
         balance = wallet.balance
@@ -109,22 +108,25 @@ def cmd_show_portfolio(args: argparse.Namespace) -> str:
             if currency_code == base_currency:
                 value = balance
             else:
-                rate, _ = get_exchange_rate(currency_code, base_currency, use_cache=True)
+                rate, _ = get_exchange_rate(
+                    currency_code, base_currency, use_cache=True
+                )
                 value = balance * rate
             return currency_code, balance, value
         except ValueError:
             return currency_code, balance, None
 
     wallet_values = map(
-        calculate_wallet_value,
-        sorted(portfolio.wallets.items(), key=lambda x: x[0])
+        calculate_wallet_value, sorted(portfolio.wallets.items(), key=lambda x: x[0])
     )
 
     total_value = 0.0
     for currency_code, balance, value in wallet_values:
         if value is not None:
             total_value += value
-            table.add_row([currency_code, f"{balance:.2f}", f"{value:.2f} {base_currency}"])
+            table.add_row(
+                [currency_code, f"{balance:.2f}", f"{value:.2f} {base_currency}"]
+            )
         else:
             table.add_row([currency_code, f"{balance:.2f}", "N/A"])
 
@@ -140,7 +142,7 @@ def cmd_show_portfolio(args: argparse.Namespace) -> str:
 def cmd_buy(args: argparse.Namespace) -> str:
     """
     Команда покупки валюты.
-    
+
     Обрабатывает исключения:
     - ValidationError: некорректные данные
     - CurrencyNotFoundError: неизвестная валюта
@@ -159,7 +161,7 @@ def cmd_buy(args: argparse.Namespace) -> str:
         return f"Ошибка: {str(e)}\nИспользуйте 'get-rate --help' для списка поддерживаемых валют."
     except ValidationError as e:
         return f"Ошибка валидации: {str(e)}"
-    except ExchangeRateNotFoundError as e:
+    except ExchangeRateNotFoundError:
         # Курс недоступен, но покупка выполнена
         result = buy_currency(user, currency_code, amount)
         return (
@@ -172,10 +174,14 @@ def cmd_buy(args: argparse.Namespace) -> str:
     # Успешная покупка
     output_parts = [
         f"✓ Покупка выполнена: {result['amount']:.4f} {result['currency']}",
-        f" по курсу {result['rate']:.2f} USD/{result['currency']}" if result.get("rate") else "",
+        f" по курсу {result['rate']:.2f} USD/{result['currency']}"
+        if result.get("rate")
+        else "",
         "\nИзменения в портфеле:",
         f"\n- {result['currency']}: было {result['old_balance']:.4f} → стало {result['new_balance']:.4f}",
-        f"\nОценочная стоимость покупки: {result['cost_usd']:,.2f} USD" if result.get("cost_usd") else "",
+        f"\nОценочная стоимость покупки: {result['cost_usd']:,.2f} USD"
+        if result.get("cost_usd")
+        else "",
     ]
 
     return "".join(filter(None, output_parts))
@@ -186,7 +192,7 @@ def cmd_buy(args: argparse.Namespace) -> str:
 def cmd_sell(args: argparse.Namespace) -> str:
     """
     Команда продажи валюты.
-    
+
     Обрабатывает исключения:
     - ValidationError: некорректные данные
     - CurrencyNotFoundError: неизвестная валюта
@@ -212,7 +218,7 @@ def cmd_sell(args: argparse.Namespace) -> str:
     except InsufficientFundsError as e:
         # InsufficientFundsError уже содержит подробное сообщение
         return str(e)
-    except ExchangeRateNotFoundError as e:
+    except ExchangeRateNotFoundError:
         # Курс недоступен, но продажа выполнена
         result = sell_currency(user, currency_code, amount)
         return (
@@ -225,10 +231,14 @@ def cmd_sell(args: argparse.Namespace) -> str:
     # Успешная продажа
     output_parts = [
         f"✓ Продажа выполнена: {result['amount']:.4f} {result['currency']}",
-        f" по курсу {result['rate']:.2f} USD/{result['currency']}" if result.get("rate") else "",
+        f" по курсу {result['rate']:.2f} USD/{result['currency']}"
+        if result.get("rate")
+        else "",
         "\nИзменения в портфеле:",
         f"\n- {result['currency']}: было {result['old_balance']:.4f} → стало {result['new_balance']:.4f}",
-        f"\nОценочная выручка: {result['revenue_usd']:,.2f} USD" if result.get("revenue_usd") else "",
+        f"\nОценочная выручка: {result['revenue_usd']:,.2f} USD"
+        if result.get("revenue_usd")
+        else "",
     ]
 
     return "".join(filter(None, output_parts))
@@ -242,18 +252,18 @@ def _get_supported_currencies() -> str:
         Строка со списком валют
     """
     from valutatrade_hub.core.currencies import get_currency
-    
+
     # Попробуем получить несколько известных валют для примера
     known_currencies = ["USD", "EUR", "GBP", "RUB", "BTC", "ETH"]
     supported = []
-    
+
     for code in known_currencies:
         try:
             currency = get_currency(code)
             supported.append(f"  {code} - {currency.name}")
         except CurrencyNotFoundError:
             pass
-    
+
     if supported:
         return "\nПоддерживаемые валюты (примеры):\n" + "\n".join(supported)
     return "\nИспользуйте команду 'get-rate --help' для справки."
@@ -263,7 +273,7 @@ def _get_supported_currencies() -> str:
 def cmd_get_rate(args: argparse.Namespace) -> str:
     """
     Команда получения курса валюты.
-    
+
     Обрабатывает исключения:
     - CurrencyNotFoundError: предлагает help или список валют
     - ApiRequestError: предлагает повторить позже / проверить сеть
@@ -282,7 +292,9 @@ def cmd_get_rate(args: argparse.Namespace) -> str:
     except ApiRequestError as e:
         # Предлагаем повторить позже / проверить сеть
         error_msg = str(e)
-        suggestion = "\nПопробуйте повторить запрос позже или проверьте подключение к сети."
+        suggestion = (
+            "\nПопробуйте повторить запрос позже или проверьте подключение к сети."
+        )
         return f"{error_msg}{suggestion}"
 
     def format_output() -> str:
@@ -305,15 +317,153 @@ def cmd_get_rate(args: argparse.Namespace) -> str:
     return "".join(format_output())
 
 
+@handle_errors
+def cmd_update_rates(args: argparse.Namespace) -> str:
+    """
+    Команда обновления курсов валют.
+
+    Обрабатывает исключения:
+    - ApiRequestError: ошибки при обращении к внешнему API
+    """
+    from datetime import datetime
+
+    from valutatrade_hub.core.exceptions import ApiRequestError
+    from valutatrade_hub.core.utils import load_rates, save_rates
+
+    source = args.source.lower() if args.source else None
+
+    # Пока Parser Service не реализован, используем заглушку
+    # TODO: Интегрировать с parser_service.updater.RatesUpdater
+
+    try:
+        # Заглушка: сообщаем, что Parser Service еще не реализован
+        if source and source not in ("coingecko", "exchangerate"):
+            return f"Неизвестный источник: {source}. Используйте 'coingecko' или 'exchangerate'"
+
+        # Временная заглушка
+        rates = load_rates()
+        if not rates:
+            rates = {}
+
+        # Обновляем метаданные
+        rates["source"] = "ParserService"
+        rates["last_refresh"] = datetime.now().isoformat()
+
+        save_rates(rates)
+
+        return (
+            "INFO: Starting rates update...\n"
+            "INFO: Parser Service еще не реализован. Используется заглушка.\n"
+            f"Update successful. Last refresh: {rates['last_refresh']}"
+        )
+    except ApiRequestError as e:
+        return f"Ошибка при обновлении курсов: {str(e)}\nПопробуйте повторить позже."
+    except Exception as e:
+        return f"Ошибка: {str(e)}"
+
+
+@handle_errors
+def cmd_show_rates(args: argparse.Namespace) -> str:
+    """
+    Команда показа курсов валют из кеша.
+
+    Обрабатывает исключения:
+    - CurrencyNotFoundError: валюта не найдена в кеше
+    """
+    from datetime import datetime
+
+    from valutatrade_hub.core.utils import load_rates
+
+    rates = load_rates()
+
+    # Проверяем, что кеш не пуст
+    if not rates or (
+        isinstance(rates, dict)
+        and not any(k not in ("source", "last_refresh") for k in rates.keys())
+    ):
+        return "Локальный кеш курсов пуст. Выполните 'update-rates', чтобы загрузить данные."
+
+    # Извлекаем метаданные
+    last_refresh = rates.get("last_refresh", "неизвестно")
+
+    # Фильтруем курсы (исключаем метаданные)
+    rate_pairs = {
+        k: v
+        for k, v in rates.items()
+        if k not in ("source", "last_refresh") and isinstance(v, dict)
+    }
+
+    if not rate_pairs:
+        return "Локальный кеш курсов пуст. Выполните 'update-rates', чтобы загрузить данные."
+
+    # Применяем фильтры
+    result_lines = []
+
+    # Фильтр по валюте
+    if args.currency:
+        currency = args.currency.upper()
+        filtered_pairs = {k: v for k, v in rate_pairs.items() if currency in k}
+
+        if not filtered_pairs:
+            return f"Курс для '{currency}' не найден в кеше."
+
+        rate_pairs = filtered_pairs
+
+    # Фильтр --top (топ N самых дорогих)
+    if args.top:
+        try:
+            top_n = int(args.top)
+            # Сортируем по значению курса (по убыванию)
+            sorted_pairs = sorted(
+                rate_pairs.items(), key=lambda x: x[1].get("rate", 0), reverse=True
+            )[:top_n]
+            rate_pairs = dict(sorted_pairs)
+        except ValueError:
+            return f"Некорректное значение для --top: {args.top}"
+
+    # Фильтр --base (конвертация в другую базовую валюту)
+    # TODO: Реализовать конвертацию в другую базовую валюту
+
+    # Форматируем вывод
+    try:
+        if last_refresh != "неизвестно":
+            dt = datetime.fromisoformat(last_refresh)
+            refresh_str = dt.strftime("%Y-%m-%dT%H:%M:%S")
+        else:
+            refresh_str = last_refresh
+    except (ValueError, TypeError):
+        refresh_str = last_refresh
+
+    result_lines.append(f"Rates from cache (updated at {refresh_str}):")
+
+    # Сортируем по алфавиту для вывода
+    sorted_items = sorted(rate_pairs.items())
+
+    for pair_key, rate_data in sorted_items:
+        if isinstance(rate_data, dict):
+            rate = rate_data.get("rate", "N/A")
+            result_lines.append(f"- {pair_key}: {rate}")
+
+    return "\n".join(result_lines)
+
+
 # Словарь команд с их обработчиками и парсерами
-COMMAND_HANDLERS: dict[str, tuple[Callable, Callable[[argparse.ArgumentParser], None]]] = {
+COMMAND_HANDLERS: dict[
+    str, tuple[Callable, Callable[[argparse.ArgumentParser], None]]
+] = {
     "register": (
         cmd_register,
-        lambda p: (p.add_argument("--username", required=True), p.add_argument("--password", required=True)),
+        lambda p: (
+            p.add_argument("--username", required=True),
+            p.add_argument("--password", required=True),
+        ),
     ),
     "login": (
         cmd_login,
-        lambda p: (p.add_argument("--username", required=True), p.add_argument("--password", required=True)),
+        lambda p: (
+            p.add_argument("--username", required=True),
+            p.add_argument("--password", required=True),
+        ),
     ),
     "show-portfolio": (
         cmd_show_portfolio,
@@ -321,15 +471,53 @@ COMMAND_HANDLERS: dict[str, tuple[Callable, Callable[[argparse.ArgumentParser], 
     ),
     "buy": (
         cmd_buy,
-        lambda p: (p.add_argument("--currency", required=True), p.add_argument("--amount", required=True)),
+        lambda p: (
+            p.add_argument("--currency", required=True),
+            p.add_argument("--amount", required=True),
+        ),
     ),
     "sell": (
         cmd_sell,
-        lambda p: (p.add_argument("--currency", required=True), p.add_argument("--amount", required=True)),
+        lambda p: (
+            p.add_argument("--currency", required=True),
+            p.add_argument("--amount", required=True),
+        ),
     ),
     "get-rate": (
         cmd_get_rate,
-        lambda p: (p.add_argument("--from", dest="from_currency", required=True), p.add_argument("--to", required=True)),
+        lambda p: (
+            p.add_argument("--from", dest="from_currency", required=True),
+            p.add_argument("--to", required=True),
+        ),
+    ),
+    "update-rates": (
+        cmd_update_rates,
+        lambda p: p.add_argument(
+            "--source",
+            default=None,
+            help="Источник данных: 'coingecko' или 'exchangerate'",
+        ),
+    ),
+    "show-rates": (
+        cmd_show_rates,
+        lambda p: (
+            p.add_argument(
+                "--currency",
+                default=None,
+                help="Показать курс только для указанной валюты",
+            ),
+            p.add_argument(
+                "--top",
+                default=None,
+                type=int,
+                help="Показать N самых дорогих криптовалют",
+            ),
+            p.add_argument(
+                "--base",
+                default=None,
+                help="Показать курсы относительно указанной базы",
+            ),
+        ),
     ),
 }
 

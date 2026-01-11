@@ -45,12 +45,21 @@ class DatabaseManager:
             Загруженные данные или default
         """
         if not file_path.exists():
-            return default if default is not None else ([] if "portfolio" in str(file_path) or "user" in str(file_path) else {})
+            return (
+                default
+                if default is not None
+                else (
+                    []
+                    if "portfolio" in str(file_path) or "user" in str(file_path)
+                    else {}
+                )
+            )
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 return json.load(f)
         except (json.JSONDecodeError, IOError) as e:
             from valutatrade_hub.core.exceptions import DatabaseError
+
             raise DatabaseError(f"Ошибка загрузки файла {file_path}: {str(e)}") from e
 
     def _save_json(self, file_path: Path, data: Any) -> None:
@@ -70,6 +79,7 @@ class DatabaseManager:
                 json.dump(data, f, indent=2, ensure_ascii=False)
         except IOError as e:
             from valutatrade_hub.core.exceptions import DatabaseError
+
             raise DatabaseError(f"Ошибка сохранения файла {file_path}: {str(e)}") from e
 
     def load_users(self) -> list[dict]:
@@ -129,4 +139,3 @@ class DatabaseManager:
 
 # Глобальный экземпляр для удобного доступа
 database = DatabaseManager()
-
