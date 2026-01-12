@@ -1,2 +1,58 @@
-{}
-
+{
+  "pairs": {
+    "BTC_USD": {
+      "rate": 92029.0,
+      "updated_at": "2026-01-12T16:38:26.749626Z",
+      "source": "CoinGecko"
+    },
+    "ETH_USD": {
+      "rate": 3129.94,
+      "updated_at": "2026-01-12T16:38:26.749626Z",
+      "source": "CoinGecko"
+    },
+    "SOL_USD": {
+      "rate": 143.45,
+      "updated_at": "2026-01-12T16:38:26.749626Z",
+      "source": "CoinGecko"
+    },
+    "USDT_USD": {
+      "rate": 0.999155,
+      "updated_at": "2026-01-12T16:38:26.749626Z",
+      "source": "CoinGecko"
+    },
+    "BNB_USD": {
+      "rate": 904.99,
+      "updated_at": "2026-01-12T16:38:26.749626Z",
+      "source": "CoinGecko"
+    },
+    "ADA_USD": {
+      "rate": 0.397533,
+      "updated_at": "2026-01-12T16:38:26.749626Z",
+      "source": "CoinGecko"
+    },
+    "XRP_USD": {
+      "rate": 2.1,
+      "updated_at": "2026-01-12T16:38:26.749626Z",
+      "source": "CoinGecko"
+    },
+    "DOGE_USD": {
+      "rate": 0.13961,
+      "updated_at": "2026-01-12T16:38:26.749626Z",
+      "source": "CoinGecko"
+    }
+  },
+  "source": "ParserService",
+  "last_refresh": "2026-01-12T16:38:26.749626Z",
+  "EUR_USD": {
+    "rate": 1.1,
+    "updated_at": "2026-01-12T19:43:59.750743"
+  },
+  "BTC_EUR": {
+    "rate": 40909.090909090904,
+    "updated_at": "2026-01-12T19:43:01.205966"
+  },
+  "USD_EUR": {
+    "rate": 0.9090909090909091,
+    "updated_at": "2026-01-12T19:43:01.206305"
+  }
+}

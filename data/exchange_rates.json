@@ -1,0 +1,354 @@
+[
+  {
+    "id": "BTC_USD_2026-01-12T16:02:48.450115Z",
+    "from_currency": "BTC",
+    "to_currency": "USD",
+    "rate": 91697.0,
+    "timestamp": "2026-01-12T16:02:48.450115Z",
+    "source": "CoinGecko",
+    "meta": {
+      "request_timeout": 10
+    }
+  },
+  {
+    "id": "ETH_USD_2026-01-12T16:02:48.450244Z",
+    "from_currency": "ETH",
+    "to_currency": "USD",
+    "rate": 3128.48,
+    "timestamp": "2026-01-12T16:02:48.450244Z",
+    "source": "CoinGecko",
+    "meta": {
+      "request_timeout": 10
+    }
+  },
+  {
+    "id": "SOL_USD_2026-01-12T16:02:48.450414Z",
+    "from_currency": "SOL",
+    "to_currency": "USD",
+    "rate": 142.46,
+    "timestamp": "2026-01-12T16:02:48.450414Z",
+    "source": "CoinGecko",
+    "meta": {
+      "request_timeout": 10
+    }
+  },
+  {
+    "id": "USDT_USD_2026-01-12T16:02:48.451091Z",
+    "from_currency": "USDT",
+    "to_currency": "USD",
+    "rate": 0.999023,
+    "timestamp": "2026-01-12T16:02:48.451091Z",
+    "source": "CoinGecko",
+    "meta": {
+      "request_timeout": 10
+    }
+  },
+  {
+    "id": "BNB_USD_2026-01-12T16:02:48.451248Z",
+    "from_currency": "BNB",
+    "to_currency": "USD",
+    "rate": 904.24,
+    "timestamp": "2026-01-12T16:02:48.451248Z",
+    "source": "CoinGecko",
+    "meta": {
+      "request_timeout": 10
+    }
+  },
+  {
+    "id": "ADA_USD_2026-01-12T16:02:48.452501Z",
+    "from_currency": "ADA",
+    "to_currency": "USD",
+    "rate": 0.394436,
+    "timestamp": "2026-01-12T16:02:48.452501Z",
+    "source": "CoinGecko",
+    "meta": {
+      "request_timeout": 10
+    }
+  },
+  {
+    "id": "XRP_USD_2026-01-12T16:02:48.452676Z",
+    "from_currency": "XRP",
+    "to_currency": "USD",
+    "rate": 2.09,
+    "timestamp": "2026-01-12T16:02:48.452676Z",
+    "source": "CoinGecko",
+    "meta": {
+      "request_timeout": 10
+    }
+  },
+  {
+    "id": "DOGE_USD_2026-01-12T16:02:48.453573Z",
+    "from_currency": "DOGE",
+    "to_currency": "USD",
+    "rate": 0.138468,
+    "timestamp": "2026-01-12T16:02:48.453573Z",
+    "source": "CoinGecko",
+    "meta": {
+      "request_timeout": 10
+    }
+  },
+  {
+    "id": "BTC_USD_2026-01-12T16:08:05.694139Z",
+    "from_currency": "BTC",
+    "to_currency": "USD",
+    "rate": 91613.0,
+    "timestamp": "2026-01-12T16:08:05.694139Z",
+    "source": "CoinGecko",
+    "meta": {
+      "request_timeout": 10
+    }
+  },
+  {
+    "id": "ETH_USD_2026-01-12T16:08:05.694367Z",
+    "from_currency": "ETH",
+    "to_currency": "USD",
+    "rate": 3127.53,
+    "timestamp": "2026-01-12T16:08:05.694367Z",
+    "source": "CoinGecko",
+    "meta": {
+      "request_timeout": 10
+    }
+  },
+  {
+    "id": "SOL_USD_2026-01-12T16:08:05.695200Z",
+    "from_currency": "SOL",
+    "to_currency": "USD",
+    "rate": 142.53,
+    "timestamp": "2026-01-12T16:08:05.695200Z",
+    "source": "CoinGecko",
+    "meta": {
+      "request_timeout": 10
+    }
+  },
+  {
+    "id": "USDT_USD_2026-01-12T16:08:05.695460Z",
+    "from_currency": "USDT",
+    "to_currency": "USD",
+    "rate": 0.999109,
+    "timestamp": "2026-01-12T16:08:05.695460Z",
+    "source": "CoinGecko",
+    "meta": {
+      "request_timeout": 10
+    }
+  },
+  {
+    "id": "BNB_USD_2026-01-12T16:08:05.695688Z",
+    "from_currency": "BNB",
+    "to_currency": "USD",
+    "rate": 904.52,
+    "timestamp": "2026-01-12T16:08:05.695688Z",
+    "source": "CoinGecko",
+    "meta": {
+      "request_timeout": 10
+    }
+  },
+  {
+    "id": "ADA_USD_2026-01-12T16:08:05.696655Z",
+    "from_currency": "ADA",
+    "to_currency": "USD",
+    "rate": 0.394987,
+    "timestamp": "2026-01-12T16:08:05.696655Z",
+    "source": "CoinGecko",
+    "meta": {
+      "request_timeout": 10
+    }
+  },
+  {
+    "id": "XRP_USD_2026-01-12T16:08:05.696926Z",
+    "from_currency": "XRP",
+    "to_currency": "USD",
+    "rate": 2.09,
+    "timestamp": "2026-01-12T16:08:05.696926Z",
+    "source": "CoinGecko",
+    "meta": {
+      "request_timeout": 10
+    }
+  },
+  {
+    "id": "DOGE_USD_2026-01-12T16:08:05.697244Z",
+    "from_currency": "DOGE",
+    "to_currency": "USD",
+    "rate": 0.138575,
+    "timestamp": "2026-01-12T16:08:05.697244Z",
+    "source": "CoinGecko",
+    "meta": {
+      "request_timeout": 10
+    }
+  },
+  {
+    "id": "BTC_USD_2026-01-12T16:08:33.380795Z",
+    "from_currency": "BTC",
+    "to_currency": "USD",
+    "rate": 91613.0,
+    "timestamp": "2026-01-12T16:08:33.380795Z",
+    "source": "CoinGecko",
+    "meta": {
+      "request_timeout": 10
+    }
+  },
+  {
+    "id": "ETH_USD_2026-01-12T16:08:33.381127Z",
+    "from_currency": "ETH",
+    "to_currency": "USD",
+    "rate": 3127.53,
+    "timestamp": "2026-01-12T16:08:33.381127Z",
+    "source": "CoinGecko",
+    "meta": {
+      "request_timeout": 10
+    }
+  },
+  {
+    "id": "SOL_USD_2026-01-12T16:08:33.382225Z",
+    "from_currency": "SOL",
+    "to_currency": "USD",
+    "rate": 142.53,
+    "timestamp": "2026-01-12T16:08:33.382225Z",
+    "source": "CoinGecko",
+    "meta": {
+      "request_timeout": 10
+    }
+  },
+  {
+    "id": "USDT_USD_2026-01-12T16:08:33.382515Z",
+    "from_currency": "USDT",
+    "to_currency": "USD",
+    "rate": 0.999109,
+    "timestamp": "2026-01-12T16:08:33.382515Z",
+    "source": "CoinGecko",
+    "meta": {
+      "request_timeout": 10
+    }
+  },
+  {
+    "id": "BNB_USD_2026-01-12T16:08:33.383352Z",
+    "from_currency": "BNB",
+    "to_currency": "USD",
+    "rate": 904.52,
+    "timestamp": "2026-01-12T16:08:33.383352Z",
+    "source": "CoinGecko",
+    "meta": {
+      "request_timeout": 10
+    }
+  },
+  {
+    "id": "ADA_USD_2026-01-12T16:08:33.383650Z",
+    "from_currency": "ADA",
+    "to_currency": "USD",
+    "rate": 0.394987,
+    "timestamp": "2026-01-12T16:08:33.383650Z",
+    "source": "CoinGecko",
+    "meta": {
+      "request_timeout": 10
+    }
+  },
+  {
+    "id": "XRP_USD_2026-01-12T16:08:33.384476Z",
+    "from_currency": "XRP",
+    "to_currency": "USD",
+    "rate": 2.09,
+    "timestamp": "2026-01-12T16:08:33.384476Z",
+    "source": "CoinGecko",
+    "meta": {
+      "request_timeout": 10
+    }
+  },
+  {
+    "id": "DOGE_USD_2026-01-12T16:08:33.384788Z",
+    "from_currency": "DOGE",
+    "to_currency": "USD",
+    "rate": 0.138575,
+    "timestamp": "2026-01-12T16:08:33.384788Z",
+    "source": "CoinGecko",
+    "meta": {
+      "request_timeout": 10
+    }
+  },
+  {
+    "id": "BTC_USD_2026-01-12T16:38:26.749943Z",
+    "from_currency": "BTC",
+    "to_currency": "USD",
+    "rate": 92029.0,
+    "timestamp": "2026-01-12T16:38:26.749943Z",
+    "source": "CoinGecko",
+    "meta": {
+      "request_timeout": 10
+    }
+  },
+  {
+    "id": "ETH_USD_2026-01-12T16:38:26.750339Z",
+    "from_currency": "ETH",
+    "to_currency": "USD",
+    "rate": 3129.94,
+    "timestamp": "2026-01-12T16:38:26.750339Z",
+    "source": "CoinGecko",
+    "meta": {
+      "request_timeout": 10
+    }
+  },
+  {
+    "id": "SOL_USD_2026-01-12T16:38:26.751604Z",
+    "from_currency": "SOL",
+    "to_currency": "USD",
+    "rate": 143.45,
+    "timestamp": "2026-01-12T16:38:26.751604Z",
+    "source": "CoinGecko",
+    "meta": {
+      "request_timeout": 10
+    }
+  },
+  {
+    "id": "USDT_USD_2026-01-12T16:38:26.752063Z",
+    "from_currency": "USDT",
+    "to_currency": "USD",
+    "rate": 0.999155,
+    "timestamp": "2026-01-12T16:38:26.752063Z",
+    "source": "CoinGecko",
+    "meta": {
+      "request_timeout": 10
+    }
+  },
+  {
+    "id": "BNB_USD_2026-01-12T16:38:26.753207Z",
+    "from_currency": "BNB",
+    "to_currency": "USD",
+    "rate": 904.99,
+    "timestamp": "2026-01-12T16:38:26.753207Z",
+    "source": "CoinGecko",
+    "meta": {
+      "request_timeout": 10
+    }
+  },
+  {
+    "id": "ADA_USD_2026-01-12T16:38:26.753576Z",
+    "from_currency": "ADA",
+    "to_currency": "USD",
+    "rate": 0.397533,
+    "timestamp": "2026-01-12T16:38:26.753576Z",
+    "source": "CoinGecko",
+    "meta": {
+      "request_timeout": 10
+    }
+  },
+  {
+    "id": "XRP_USD_2026-01-12T16:38:26.754426Z",
+    "from_currency": "XRP",
+    "to_currency": "USD",
+    "rate": 2.1,
+    "timestamp": "2026-01-12T16:38:26.754426Z",
+    "source": "CoinGecko",
+    "meta": {
+      "request_timeout": 10
+    }
+  },
+  {
+    "id": "DOGE_USD_2026-01-12T16:38:26.754779Z",
+    "from_currency": "DOGE",
+    "to_currency": "USD",
+    "rate": 0.13961,
+    "timestamp": "2026-01-12T16:38:26.754779Z",
+    "source": "CoinGecko",
+    "meta": {
+      "request_timeout": 10
+    }
+  }
+]
