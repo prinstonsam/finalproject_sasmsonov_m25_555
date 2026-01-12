@@ -1,7 +1,7 @@
 """Конфигурация Parser Service."""
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 
@@ -15,16 +15,18 @@ class ParserConfig:
     BASE_CURRENCY: str = "USD"
     FIAT_CURRENCIES: tuple = ("EUR", "GBP", "RUB", "JPY", "CNY", "CHF", "CAD", "AUD")
     CRYPTO_CURRENCIES: tuple = ("BTC", "ETH", "SOL", "USDT", "BNB", "ADA", "XRP", "DOGE")
-    CRYPTO_ID_MAP: dict = {
-        "BTC": "bitcoin",
-        "ETH": "ethereum",
-        "SOL": "solana",
-        "USDT": "tether",
-        "BNB": "binancecoin",
-        "ADA": "cardano",
-        "XRP": "ripple",
-        "DOGE": "dogecoin",
-    }
+    CRYPTO_ID_MAP: dict = field(
+        default_factory=lambda: {
+            "BTC": "bitcoin",
+            "ETH": "ethereum",
+            "SOL": "solana",
+            "USDT": "tether",
+            "BNB": "binancecoin",
+            "ADA": "cardano",
+            "XRP": "ripple",
+            "DOGE": "dogecoin",
+        }
+    )
     REQUEST_TIMEOUT: int = 10
 
     def __post_init__(self) -> None:
@@ -32,7 +34,7 @@ class ParserConfig:
         if self.EXCHANGERATE_API_KEY is None:
             self.EXCHANGERATE_API_KEY = os.getenv("EXCHANGERATE_API_KEY")
             if not self.EXCHANGERATE_API_KEY:
-                api_key_file = Path(__file__).parent.parent.parent.parent / "api_key.txt"
+                api_key_file = Path(__file__).parent.parent.parent / "api_key.txt"
                 if api_key_file.exists():
                     try:
                         self.EXCHANGERATE_API_KEY = (

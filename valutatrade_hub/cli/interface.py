@@ -445,7 +445,7 @@ COMMAND_HANDLERS: dict[
         cmd_get_rate,
         lambda p: (
             p.add_argument("--from", dest="from_currency", required=True),
-            p.add_argument("--to", required=True),
+            p.add_argument("--to", dest="to_currency", required=True),
         ),
     ),
     "update-rates": (
