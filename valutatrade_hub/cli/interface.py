@@ -5,8 +5,6 @@ import shlex
 from datetime import datetime
 from typing import Callable
 
-from prettytable import PrettyTable
-
 from valutatrade_hub.core.exceptions import (
     ApiRequestError,
     CurrencyNotFoundError,
@@ -15,7 +13,6 @@ from valutatrade_hub.core.exceptions import (
     ValidationError,
     WalletNotFoundError,
 )
-from valutatrade_hub.core.models import Portfolio
 from valutatrade_hub.core.usecases import (
     buy_currency,
     get_current_user,
@@ -93,48 +90,39 @@ def cmd_show_portfolio(args: argparse.Namespace) -> str:
     if not portfolio.wallets:
         return f"Портфель пользователя '{user.username}' пуст"
 
-    # Создаём таблицу
-    table = PrettyTable()
-    table.field_names = ["Валюта", "Баланс", f"→ {base_currency}"]
+    result_lines = [f"Портфель пользователя '{user.username}' (база: {base_currency}):"]
 
-    def calculate_wallet_value(
-        wallet_data: tuple[str, Portfolio],
-    ) -> tuple[str, float, float]:
-        """Генератор для расчёта стоимости кошелька."""
-        currency_code, wallet = wallet_data
+    total_value = 0.0
+    sorted_wallets = sorted(portfolio.wallets.items(), key=lambda x: x[0])
+
+    for currency_code, wallet in sorted_wallets:
         balance = wallet.balance
 
         try:
             if currency_code == base_currency:
                 value = balance
             else:
-                rate, _ = get_exchange_rate(
-                    currency_code, base_currency, use_cache=True
-                )
+                rate, _ = get_exchange_rate(currency_code, base_currency, use_cache=True)
                 value = balance * rate
-            return currency_code, balance, value
-        except ValueError:
-            return currency_code, balance, None
 
-    wallet_values = map(
-        calculate_wallet_value, sorted(portfolio.wallets.items(), key=lambda x: x[0])
-    )
+            if value is not None:
+                total_value += value
+                if currency_code in ("BTC", "ETH", "SOL") or balance < 1.0:
+                    balance_str = f"{balance:.4f}"
+                else:
+                    balance_str = f"{balance:.2f}"
+                result_lines.append(
+                    f"- {currency_code}: {balance_str}  → {value:,.2f} {base_currency}"
+                )
+            else:
+                result_lines.append(f"- {currency_code}: {balance:.2f}  → N/A")
+        except (ValueError, ExchangeRateNotFoundError):
+            result_lines.append(f"- {currency_code}: {balance:.2f}  → N/A")
 
-    total_value = 0.0
-    for currency_code, balance, value in wallet_values:
-        if value is not None:
-            total_value += value
-            table.add_row(
-                [currency_code, f"{balance:.2f}", f"{value:.2f} {base_currency}"]
-            )
-        else:
-            table.add_row([currency_code, f"{balance:.2f}", "N/A"])
+    result_lines.append("---------------------------------")
+    result_lines.append(f"ИТОГО: {total_value:,.2f} {base_currency}")
 
-    result = f"Портфель пользователя '{user.username}' (база: {base_currency}):\n"
-    result += table.get_string()
-    result += f"\n---------------------------------\nИТОГО: {total_value:,.2f} {base_currency}"
-
-    return result
+    return "\n".join(result_lines)
 
 
 @handle_errors
