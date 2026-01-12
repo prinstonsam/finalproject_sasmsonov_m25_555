@@ -147,6 +147,7 @@ def cmd_buy(args: argparse.Namespace) -> str:
     - ValidationError: некорректные данные
     - CurrencyNotFoundError: неизвестная валюта
     - ExchangeRateNotFoundError: курс недоступен
+    - InsufficientFundsError: недостаточно USD для покупки
     """
     user = get_current_user()
     if user is None:
@@ -161,30 +162,21 @@ def cmd_buy(args: argparse.Namespace) -> str:
         return f"Ошибка: {str(e)}\nИспользуйте 'get-rate --help' для списка поддерживаемых валют."
     except ValidationError as e:
         return f"Ошибка валидации: {str(e)}"
+    except InsufficientFundsError as e:
+        return str(e)
     except ExchangeRateNotFoundError:
-        # Курс недоступен, но покупка выполнена
-        result = buy_currency(user, currency_code, amount)
-        return (
-            f"Покупка выполнена: {result['amount']:.4f} {result['currency']}\n"
-            f"Изменения в портфеле:\n"
-            f"- {result['currency']}: было {result['old_balance']:.4f} → стало {result['new_balance']:.4f}\n"
-            f"Примечание: Курс обмена недоступен, оценочная стоимость не рассчитана."
-        )
+        return f"Не удалось получить курс для {currency_code}→USD"
 
-    # Успешная покупка
     output_parts = [
-        f"✓ Покупка выполнена: {result['amount']:.4f} {result['currency']}",
-        f" по курсу {result['rate']:.2f} USD/{result['currency']}"
-        if result.get("rate")
-        else "",
+        f"Покупка выполнена: {result['amount']:.4f} {result['currency']}",
+        f" по курсу {result['rate']:.2f} USD/{result['currency']}",
         "\nИзменения в портфеле:",
         f"\n- {result['currency']}: было {result['old_balance']:.4f} → стало {result['new_balance']:.4f}",
-        f"\nОценочная стоимость покупки: {result['cost_usd']:,.2f} USD"
-        if result.get("cost_usd")
-        else "",
+        f"\n- USD: было {result.get('usd_old_balance', 0):,.2f} → стало {result.get('usd_new_balance', 0):,.2f}",
+        f"\nОценочная стоимость покупки: {result['cost_usd']:,.2f} USD",
     ]
 
-    return "".join(filter(None, output_parts))
+    return "".join(output_parts)
 
 
 @handle_errors
@@ -219,29 +211,18 @@ def cmd_sell(args: argparse.Namespace) -> str:
         # InsufficientFundsError уже содержит подробное сообщение
         return str(e)
     except ExchangeRateNotFoundError:
-        # Курс недоступен, но продажа выполнена
-        result = sell_currency(user, currency_code, amount)
-        return (
-            f"Продажа выполнена: {result['amount']:.4f} {result['currency']}\n"
-            f"Изменения в портфеле:\n"
-            f"- {result['currency']}: было {result['old_balance']:.4f} → стало {result['new_balance']:.4f}\n"
-            f"Примечание: Курс обмена недоступен, оценочная выручка не рассчитана."
-        )
+        return f"Не удалось получить курс для {currency_code}→USD"
 
-    # Успешная продажа
     output_parts = [
-        f"✓ Продажа выполнена: {result['amount']:.4f} {result['currency']}",
-        f" по курсу {result['rate']:.2f} USD/{result['currency']}"
-        if result.get("rate")
-        else "",
+        f"Продажа выполнена: {result['amount']:.4f} {result['currency']}",
+        f" по курсу {result['rate']:.2f} USD/{result['currency']}",
         "\nИзменения в портфеле:",
         f"\n- {result['currency']}: было {result['old_balance']:.4f} → стало {result['new_balance']:.4f}",
-        f"\nОценочная выручка: {result['revenue_usd']:,.2f} USD"
-        if result.get("revenue_usd")
-        else "",
+        f"\n- USD: было {result.get('usd_old_balance', 0):,.2f} → стало {result.get('usd_new_balance', 0):,.2f}",
+        f"\nОценочная выручка: {result['revenue_usd']:,.2f} USD",
     ]
 
-    return "".join(filter(None, output_parts))
+    return "".join(output_parts)
 
 
 def _get_supported_currencies() -> str:
