@@ -10,6 +10,7 @@ from valutatrade_hub.core.exceptions import (
     AuthenticationError,
     CurrencyNotFoundError,
     ExchangeRateNotFoundError,
+    InsufficientFundsError,
     UserNotFoundError,
     ValidationError,
     WalletNotFoundError,
@@ -365,6 +366,7 @@ def buy_currency(user: User, currency_code: str, amount: float) -> dict:
         ValidationError: Если amount <= 0
         CurrencyNotFoundError: Если валюта не найдена
         ExchangeRateNotFoundError: Если курс недоступен
+        InsufficientFundsError: Если недостаточно USD для покупки
     """
     from valutatrade_hub.core.currencies import get_currency
 
@@ -380,29 +382,35 @@ def buy_currency(user: User, currency_code: str, amount: float) -> dict:
     except CurrencyNotFoundError:
         raise CurrencyNotFoundError(currency_code)
 
-    # Безопасная операция: чтение → модификация → запись
     portfolio = get_user_portfolio(user.user_id)
 
-    # Получаем или создаём кошелёк
+    rate, _ = get_exchange_rate(currency_code, "USD")
+    cost_usd = convert_currency_amount(amount, currency_code, "USD", rate)
+
+    usd_wallet = portfolio.get_wallet("USD")
+    if usd_wallet is None:
+        usd_wallet = portfolio.add_currency("USD")
+
+    if usd_wallet.balance < cost_usd:
+        raise InsufficientFundsError(
+            available=usd_wallet.balance,
+            required=cost_usd,
+            code="USD"
+        )
+
     wallet = portfolio.get_wallet(currency_code)
     if wallet is None:
         wallet = portfolio.add_currency(currency_code)
 
     old_balance = wallet.balance
+    usd_old_balance = usd_wallet.balance
+
+    usd_wallet.withdraw(cost_usd)
     wallet.deposit(amount)
+
     new_balance = wallet.balance
+    usd_new_balance = usd_wallet.balance
 
-    # Получаем курс для расчёта стоимости
-    rate = None
-    cost_usd = None
-    try:
-        rate, _ = get_exchange_rate(currency_code, "USD")
-        cost_usd = convert_currency_amount(amount, currency_code, "USD", rate)
-    except ExchangeRateNotFoundError:
-        # Курс недоступен, но операция продолжается
-        pass
-
-    # Сохраняем портфель
     save_portfolio(portfolio)
 
     return {
@@ -411,8 +419,10 @@ def buy_currency(user: User, currency_code: str, amount: float) -> dict:
         "old_balance": old_balance,
         "new_balance": new_balance,
         "rate": rate,
-        "base": "USD" if rate is not None else None,
+        "base": "USD",
         "cost_usd": cost_usd,
+        "usd_old_balance": usd_old_balance,
+        "usd_new_balance": usd_new_balance,
     }
 
 
@@ -450,7 +460,6 @@ def sell_currency(user: User, currency_code: str, amount: float) -> dict:
     except CurrencyNotFoundError:
         raise CurrencyNotFoundError(currency_code)
 
-    # Безопасная операция: чтение → модификация → запись
     portfolio = get_user_portfolio(user.user_id)
     wallet = portfolio.get_wallet(currency_code)
 
@@ -460,22 +469,22 @@ def sell_currency(user: User, currency_code: str, amount: float) -> dict:
             "Добавьте валюту: она создаётся автоматически при первой покупке."
         )
 
-    # Проверка средств (InsufficientFundsError выбрасывается в wallet.withdraw)
+    rate, _ = get_exchange_rate(currency_code, "USD")
+    revenue_usd = convert_currency_amount(amount, currency_code, "USD", rate)
+
+    usd_wallet = portfolio.get_wallet("USD")
+    if usd_wallet is None:
+        usd_wallet = portfolio.add_currency("USD")
+
     old_balance = wallet.balance
-    wallet.withdraw(amount)  # Может выбросить InsufficientFundsError
+    usd_old_balance = usd_wallet.balance
+
+    wallet.withdraw(amount)
+    usd_wallet.deposit(revenue_usd)
+
     new_balance = wallet.balance
+    usd_new_balance = usd_wallet.balance
 
-    # Получаем курс для расчёта выручки
-    rate = None
-    revenue_usd = None
-    try:
-        rate, _ = get_exchange_rate(currency_code, "USD")
-        revenue_usd = convert_currency_amount(amount, currency_code, "USD", rate)
-    except ExchangeRateNotFoundError:
-        # Курс недоступен, но операция продолжается
-        pass
-
-    # Сохраняем портфель
     save_portfolio(portfolio)
 
     return {
@@ -484,6 +493,8 @@ def sell_currency(user: User, currency_code: str, amount: float) -> dict:
         "old_balance": old_balance,
         "new_balance": new_balance,
         "rate": rate,
-        "base": "USD" if rate is not None else None,
+        "base": "USD",
         "revenue_usd": revenue_usd,
+        "usd_old_balance": usd_old_balance,
+        "usd_new_balance": usd_new_balance,
     }
